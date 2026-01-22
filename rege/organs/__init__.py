@@ -39,6 +39,11 @@ from rege.organs.place_protocols import PlaceProtocols
 from rege.organs.time_rules import TimeRulesEngine
 from rege.organs.process_product import ProcessProductConverter
 from rege.organs.publishing_temple import PublishingTemple
+from rege.organs.process_monetizer import ProcessMonetizer
+from rege.organs.audience_engine import AudienceEngine
+from rege.organs.analog_digital_engine import AnalogDigitalEngine
+from rege.organs.consumption_protocol import ConsumptionProtocol
+from rege.organs.stagecraft_module import StagecraftModule
 
 __all__ = [
     # Base
@@ -63,4 +68,10 @@ __all__ = [
     "TimeRulesEngine",
     "ProcessProductConverter",
     "PublishingTemple",
+    # Additional Organs (14, 15, 18, 20, 21)
+    "ProcessMonetizer",
+    "AudienceEngine",
+    "AnalogDigitalEngine",
+    "ConsumptionProtocol",
+    "StagecraftModule",
 ]

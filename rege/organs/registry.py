@@ -185,6 +185,11 @@ def register_default_organs() -> OrganRegistry:
     from rege.organs.time_rules import TimeRulesEngine
     from rege.organs.process_product import ProcessProductConverter
     from rege.organs.publishing_temple import PublishingTemple
+    from rege.organs.process_monetizer import ProcessMonetizer
+    from rege.organs.audience_engine import AudienceEngine
+    from rege.organs.analog_digital_engine import AnalogDigitalEngine
+    from rege.organs.consumption_protocol import ConsumptionProtocol
+    from rege.organs.stagecraft_module import StagecraftModule
 
     registry = get_organ_registry()
 
@@ -206,5 +211,11 @@ def register_default_organs() -> OrganRegistry:
     registry.register_class(TimeRulesEngine)
     registry.register_class(ProcessProductConverter)
     registry.register_class(PublishingTemple)
+    # Additional organs (14, 15, 18, 20, 21)
+    registry.register_class(ProcessMonetizer)
+    registry.register_class(AudienceEngine)
+    registry.register_class(AnalogDigitalEngine)
+    registry.register_class(ConsumptionProtocol)
+    registry.register_class(StagecraftModule)
 
     return registry

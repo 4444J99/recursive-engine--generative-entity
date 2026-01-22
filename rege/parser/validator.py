@@ -115,6 +115,37 @@ ORGAN_REGISTRY: Dict[str, Dict[str, Any]] = {
         "output_types": ["sanctification", "publication", "seal_record", "withdrawal", "queue_status", "temple_status"],
         "description": "Final gate for releasing outputs",
     },
+    # Additional organs (14, 15, 18, 20, 21)
+    "PROCESS_MONETIZER": {
+        "valid_modes": ["value", "monetize", "gate", "ledger", "default"],
+        "required_charge": 0,
+        "output_types": ["valuation", "product", "gate_result", "ledger", "monetizer_status"],
+        "description": "Transforms creative process into sacred product and ritual currency",
+    },
+    "AUDIENCE_ENGINE": {
+        "valid_modes": ["cultivate", "tier", "track", "filter", "default"],
+        "required_charge": 0,
+        "output_types": ["node", "tier_assignment", "echo_log", "filter_report", "engine_status"],
+        "description": "Fan cultivation protocol and witness engagement module",
+    },
+    "ANALOG_DIGITAL_ENGINE": {
+        "valid_modes": ["encode", "protect", "evaluate", "trail", "default"],
+        "required_charge": 0,
+        "output_types": ["evaluation", "encoding_result", "protection_record", "trail", "engine_status"],
+        "description": "Threshold guardian between flesh and function",
+    },
+    "CONSUMPTION_PROTOCOL": {
+        "valid_modes": ["ingest", "assess", "gate", "track", "default"],
+        "required_charge": 0,
+        "output_types": ["assessment", "consumption_record", "gate_result", "pattern_report", "protocol_status"],
+        "description": "Governs ethical ingestion of outputs",
+    },
+    "STAGECRAFT_MODULE": {
+        "valid_modes": ["perform", "setup", "enact", "log", "default"],
+        "required_charge": 0,
+        "output_types": ["performance", "stage_config", "enactment", "performance_log", "module_status"],
+        "description": "Performance engine for enacting rituals in real-time",
+    },
     # Protocol pseudo-organs
     "PROTOCOL_FUSE01": {
         "valid_modes": ["auto", "invoked", "forced", "default"],
