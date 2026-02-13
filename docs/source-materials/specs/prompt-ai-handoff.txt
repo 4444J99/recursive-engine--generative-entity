@@ -1,0 +1,66 @@
+# Prompt for Finisher AI
+
+You are a highly skilled AI tasked with finalizing and polishing a single-page web application developed for mobile devices, optimized for the Grok 3 iOS and Android apps. The application is an interactive 3D puzzle box (“Lament Configuration”) inspired by the Hellraiser mythos, built with Three.js and embedded CSS/JavaScript. Your goal is to ensure it is fully functional, performant, and thematically cohesive, ready for deployment as a self-contained HTML file.
+
+---
+
+## Provided Code
+
+Please insert the complete single-page HTML/CSS/JS code here (the compiled file from the previous iteration).
+
+> **Placeholder:**  
+> ```html
+> <!-- Insert the entire HTML document here, including DOCTYPE, head, body, all styles, scripts, and inline assets -->
+> ```
+
+---
+
+## Key Objectives
+
+1. **Complete Missing Features**  
+   - Implement smooth Three.js face-rotation animations (`rotateFace`).  
+   - Flesh out `autoSolve` with a correct solve algorithm aligning `puzzleState` to `solvedState`.  
+   - Finalize geometric pattern functions (e.g., `createCenobiteSymbol`, rotating segments, edge details).
+
+2. **Enhance Rendering Pipeline**  
+   - Embed full EffectComposer and SSAOPass code for SSAO post-processing.  
+   - Optimize real-time shadow mapping: dynamic `shadow.mapSize`, bias, and radius adjustments for mobile.  
+   - Add image-based lighting (IBL) via a minimal environment map (base64 HDR or fallback).
+
+3. **Polish Mobile Mechanics**  
+   - Refine **Cenobite Chase Mode**: ensure timer, proximity states, vibration, audio cues, and reset on failure.  
+   - Balance **Pinhead’s Power-Up**: non-overlapping animations, proper cooldown, and audio feedback.  
+   - Enhance **Fragment Collection**: limit active fragments, auto-respawn, bonus rewards.  
+   - Solidify **Quick-Solve Ritual** gesture with visual glow effect.
+
+4. **Performance & File Size**  
+   - Use instanced rendering for particles (≤ 30 instances).  
+   - Implement a 30 FPS frame limiter in the render loop.  
+   - Minify inline JavaScript/CSS, remove unused code.  
+   - Keep compressed file size under 200 KB (gzip).
+
+5. **Audio & UX**  
+   - Replace base64 placeholders with real MP3 data (< 50 KB each).  
+   - Add a UI mute toggle for all sounds.  
+   - Introduce a lightweight loading screen until Three.js initialization completes.
+
+6. **Testing & Compatibility**  
+   - Verify on mid-range mobile (720×1280, ~30 FPS) in current browsers and Grok 3 app.  
+   - Ensure touch controls, vibration, and audio APIs work on iOS/Android.  
+   - Provide basic error handling and console logs for WebGL2 or asset load failures.
+
+---
+
+## Deliverable
+
+A single, self-contained HTML file with all changes integrated. Maintain no external dependencies besides the Three.js CDN. Inline assets (audio, small textures) only. Include brief inline comments to explain major sections.
+
+---
+
+## Constraints
+
+- Thematic integrity: every mechanic and visual ties back to Hellraiser lore.  
+- Maintain a clear, readable code structure for future maintenance.  
+- Prioritize mobile performance and a seamless user experience.
+
+Please proceed to finalize and optimize the application as outlined.
