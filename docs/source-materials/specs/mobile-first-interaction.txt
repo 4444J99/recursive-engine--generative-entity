@@ -1,0 +1,108 @@
+---  
+
+## 1. Embedding the Rule in Settings  
+
+Use a small YAML front-matter block at the top of your AI-settings file. It captures all the metadata you’ll need for versioning, auditing, searchability, and programmatic access:
+
+```yaml
+# settings/rules/mobile_first_interaction.yml
+
+id:                mobile_first_interaction_20250708
+version:           1.0.0
+date_created:      2025-07-08
+last_updated:      2025-07-08
+author:            UX Team
+status:            draft       # or “active” / “deprecated”
+keywords:          [mobile-first, responsive, touch, ux, design]
+description:       >
+  Enforce designing for mobile touch interactions before scaling to desktop.
+```  
+
+•  **id**: A lowercase slug with a date suffix for uniqueness.  
+•  **version**: Semantic versioning.  
+•  **date_created** / **last_updated**: Track your rule’s lifecycle.  
+•  **status**: Helps signal adoption stage.  
+•  **keywords**: Tag for searching or filtering.  
+•  **description**: One-line summary.  
+
+---  
+
+## 2. Full Design Principle: Mobile-First Interaction Design  
+
+```yaml
+---
+id:                mobile_first_interaction_20250708
+version:           1.0.0
+date_created:      2025-07-08
+last_updated:      2025-07-08
+author:            UX Team
+status:            draft
+keywords:          [mobile-first, responsive, touch, ux, design]
+title:             Mobile-First Interaction Design
+---
+```
+
+### Purpose  
+
+Ensure that all user interfaces are conceived and validated on the smallest, most constrained screens first—prioritizing touch capabilities—before progressively enhancing toward desktop and mouse interactions.
+
+### Core Tenets  
+
+1.  Focus on Constraints  
+    - Build for limited screen real estate, slower networks, lower CPU.  
+    - Force prioritization: essential content and actions only.  
+
+2.  Touch-Ready by Default  
+    - Tap targets ≥ 44×44 px.  
+    - Support primary gestures: tap, swipe, pinch, long-press.  
+    - Ensure no hidden controls that rely on hover.  
+
+3.  Progressive Enhancement  
+    - Start with a base HTML/CSS experience that works on any device.  
+    - Layer on media-queries, touch-specific CSS, then desktop‐only adjustments.  
+    - Gracefully degrade when JavaScript fails or is disabled.  
+
+4.  Performance as a Feature  
+    - Lazy-load images and assets.  
+    - Minimize render-blocking code.  
+    - Optimize for 2G/3G networks and low-end hardware.  
+
+5.  Accessibility & Inclusion  
+    - Ensure screen readers announce all controls.  
+    - Provide sufficient color contrast.  
+    - Validate with keyboard‐only navigation (some users emulate touch via keyboard).  
+
+### Implementation Checklist  
+
+- [ ] Wireframes & prototypes first on mobile viewport (320–480 px).  
+- [ ] Define all touch interactions in a gesture library.  
+- [ ] Use emulators **and** real devices for functional testing.  
+- [ ] Add responsive breakpoints incrementally (tablet → desktop).  
+- [ ] Run Lighthouse or similar audits for performance and accessibility.  
+- [ ] Document any desktop-only functionalities as progressive enhancements.  
+
+### Validation Strategy  
+
+1.  Automated QA  
+    - Integrate mobile‐first lint rules (e.g., enforce min-tap-target sizes).  
+    - CI checks for missing viewport meta, uncompressed assets.  
+
+2.  Manual Testing  
+    - Test on physical phones across OS versions.  
+    - Validate gestures with real users or QA squads.  
+
+3.  Metrics & Monitoring  
+    - Track Core Web Vitals on mobile vs desktop.  
+    - Monitor touch-input error rates (mis-taps).  
+
+### Examples & Case Studies  
+
+- Spotify Mobile App: Prioritized swipe gestures in navigation before desktop redesign.  
+- Airbnb: Streamlined booking flow to fit a one-screen checkout, then expanded features for web.  
+
+### Next Steps  
+
+- Review and adopt this principle across all new projects.  
+- Migrate existing components by auditing mobile touch readiness.  
+- Schedule quarterly reviews to bump version and update best practices.  
+- Integrate rule into your AI’s decision engine, using the `id` for programmatic reference.
