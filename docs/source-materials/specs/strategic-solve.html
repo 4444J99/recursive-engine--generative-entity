@@ -1,0 +1,582 @@
+import React, { useState, useEffect, createContext, useContext, useCallback, useRef } from 'react';
+
+// --- DEPENDENCY LOADER & DYNAMIC IMPORTS ---
+// In a real project, these would be in index.html or installed via npm.
+// For this environment, we load them dynamically and handle component imports.
+const loadScript = (src) => {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[src="${src}"]`)) {
+            resolve();
+            return;
+        }
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`Script load error for ${src}`));
+        document.head.appendChild(script);
+    });
+};
+
+const loadStyle = (href) => {
+    if (document.querySelector(`link[href="${href}"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+};
+
+// --- DATA & CONFIG ---
+/** @typedef {'red'|'orange'|'yellow'|'lime'|'emerald'|'teal'|'cyan'|'blue'|'indigo'|'purple'|'pink'|'green'} Color */
+/** @typedef {{id: number, title: string, icon: string, detail: string, color: Color, pinned: boolean}} Problem */
+/** @typedef {Object.<string, string>} Levers */
+/** @type {Problem[]} */
+const initialProblems = [
+    { id: 1, title: 'Smart Check-ins', icon: '📝', detail: 'Automating analysis of check-ins to predict needs and flag delays.', color: 'red', pinned: false },
+    { id: 2, title: 'Order Bundling', icon: '📦', detail: 'Optimizing material orders by grouping requests and suggesting suppliers.', color: 'orange', pinned: false },
+    { id: 3, title: 'Emergency Triage', icon: '🚨', detail: 'Prioritizing and routing urgent issues by assessing impact and keywords.', color: 'yellow', pinned: false },
+];
+/** @type {Object.<number, Levers>} */
+const problemLevers = {
+  1: { 'Data Entry': 'How data is input.', 'Delay Flags': 'Identifying delays.', 'Material Needs': 'Predicting materials.', 'User Input': 'Simplifying forms.', 'Reporting': 'Generating summaries.'},
+  2: { 'Grouping Logic': 'Rules for bundling.', 'Supplier Choice': 'Selecting suppliers.', 'Cost Analysis': 'Comparing costs.', 'Urgency': 'Prioritizing orders.', 'Approval Flow': 'Getting approval.'},
+  3: { 'Triage Rules': 'Defining emergencies.', 'Alert Routing': 'Notifying people.', 'Impact Assessment': 'Quantifying damage.', 'Communication': 'Sending updates.', 'Resolution Tracking': 'Monitoring the fix.'},
+};
+const teamMembers = [
+    { id: 1, name: 'Alex', avatar: '🧑‍🚀' }, { id: 2, name: 'Bri', avatar: '🧑‍🔬' },
+    { id: 3, name: 'Charlie', avatar: '🧑‍🎨' }, { id: 4, name: 'Dana', avatar: '🧑‍💻' },
+];
+const ALL_RISKS = ['Budget Overrun', 'Scope Creep', 'Resource Availability', 'Vendor Delays', 'Technical Failure'];
+const ALL_DEPENDENCIES = ['Team A Completion', 'External API', 'Management Approval', 'Hardware Delivery'];
+
+// --- ICONS ---
+const Icons = {
+    Pin: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5.586l2.293-2.293a1 1 0 011.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 111.414-1.414L9 9.586V4a1 1 0 011-1z" clipRule="evenodd" /><path d="M10 18a8 8 0 100-16 8 8 0 000 16z" /></svg>,
+    Restart: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h5M20 20v-5h-5M4 4l1.5 1.5A9 9 0 0120.5 15M20 20l-1.5-1.5A9 9 0 003.5 9" /></svg>,
+    Warning: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>,
+    Mic: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>,
+    Stop: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 10h6v4H9z" /></svg>,
+    Trash: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>,
+    Risk: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
+    Dependency: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>,
+    Download: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>,
+    Plus: () => <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>,
+};
+
+// --- MOCK API ---
+const MOCK_API_CALL = (prompt, delay = 1000) => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            if (prompt.includes("generate three distinct strategic avenues")) {
+                resolve([
+                    { avenue: "Tech-First: Automate tracking.", counter: "Objection: High cost, low adoption." },
+                    { avenue: "Process-Oriented: Redefine stand-ups.", counter: "Objection: Adds overhead, team resistance." },
+                    { avenue: "People-Focused: Empower a coordinator.", counter: "Objection: Single point of failure." },
+                ]);
+            } else if (prompt.includes("generate a practical action step")) {
+                const steps = ["Draft project charter for new system.", "Schedule a kickoff meeting with all stakeholders.", "Develop a prototype for the reporting dashboard."];
+                resolve(steps[Math.floor(Math.random() * steps.length)]);
+            } else {
+                reject(new Error("Unknown mock API prompt."));
+            }
+        }, delay);
+    });
+};
+
+// --- HOOKS ---
+function usePersistentState(key, defaultValue) {
+    const [state, setState] = useState(() => {
+        try {
+            const storedValue = window.localStorage.getItem(key);
+            return storedValue ? JSON.parse(storedValue) : defaultValue;
+        } catch (error) { return defaultValue; }
+    });
+    useEffect(() => {
+        try { window.localStorage.setItem(key, JSON.stringify(state)); } 
+        catch (error) { console.error("Error writing to localStorage", error); }
+    }, [key, state]);
+    return [state, setState];
+}
+function useAsync(asyncFunction) {
+    const [status, setStatus] = useState('idle');
+    const [value, setValue] = useState(null);
+    const [error, setError] = useState(null);
+    const lastArgs = useRef(null);
+    const execute = useCallback(async (...args) => {
+        lastArgs.current = args;
+        setStatus('pending');
+        setValue(null);
+        setError(null);
+        try {
+            const response = await asyncFunction(...args);
+            setValue(response);
+            setStatus('success');
+            return { success: true, data: response };
+        } catch (err) {
+            setError(err);
+            setStatus('error');
+            return { success: false, error: err };
+        }
+    }, [asyncFunction]);
+    const retry = useCallback(() => { if (lastArgs.current) { execute(...lastArgs.current); } }, [execute]);
+    return { execute, status, value, error, retry };
+}
+const useAudioRecorder = (onSave) => {
+    const [isRecording, setIsRecording] = useState(false);
+    const [audioURL, setAudioURL] = useState('');
+    const mediaRecorder = useRef(null);
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const audioChunks = [];
+            mediaRecorder.current = new MediaRecorder(stream);
+            mediaRecorder.current.ondataavailable = event => { audioChunks.push(event.data); };
+            mediaRecorder.current.onstop = () => {
+                const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                const url = URL.createObjectURL(audioBlob);
+                setAudioURL(url);
+                onSave(url);
+            };
+            mediaRecorder.current.start();
+            setIsRecording(true);
+        } catch (err) { alert("Could not access microphone."); }
+    };
+    const stopRecording = () => {
+        if (mediaRecorder.current?.state === "recording") { mediaRecorder.current.stop(); setIsRecording(false); }
+    };
+    const resetRecording = () => { setAudioURL(''); onSave(''); };
+    return { isRecording, audioURL, startRecording, stopRecording, resetRecording };
+};
+const useWindowSize = () => {
+    const [size, setSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+    useEffect(() => {
+        const handleResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+    return size;
+};
+
+// --- CONTEXT & PROVIDER ---
+const AppContext = createContext();
+const AppProvider = ({ children }) => {
+    const [view, setView] = useState('filingCabinet');
+    const [problems] = useState(initialProblems);
+    const [currentProblemId, setCurrentProblemId] = usePersistentState('currentProblemId', null);
+    const [savedPlans, setSavedPlans] = usePersistentState('savedPlans', []);
+    const currentProblem = problems.find(p => p.id === currentProblemId) || null;
+    const selectProblem = (problem) => { setCurrentProblemId(problem.id); setView('solver'); };
+    const value = { view, setView, problems, selectProblem, currentProblem, savedPlans, setSavedPlans };
+    return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+};
+
+// --- HELPER & GENERIC UI COMPONENTS ---
+const Tooltip = ({ text, children }) => ( <div className="relative flex items-center group">{children}<div className="absolute bottom-full mb-2 w-max max-w-xs bg-gray-800 text-white text-xs rounded py-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-20">{text}</div></div> );
+const ErrorOverlay = ({ error, onRetry }) => ( <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col justify-center items-center z-50 p-4 rounded-xl"><Icons.Warning /><h3 className="mt-2 text-xl font-bold text-gray-800">An Error Occurred</h3><p className="text-gray-600 text-center mt-1">{error?.message || 'Something went wrong.'}</p><button onClick={onRetry} className="mt-4 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 focus-visible-ring"><Icons.Restart /> Retry</button></div> );
+const SelectionModal = ({ title, options, selected, onToggle, onClose }) => (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50" onClick={onClose}>
+        <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-4">{title}</h3>
+            <div className="space-y-2">
+                {options.map(option => (
+                    <label key={option} className="flex items-center p-2 rounded-lg hover:bg-gray-100 cursor-pointer">
+                        <input type="checkbox" checked={selected.includes(option)} onChange={() => onToggle(option)} className="h-5 w-5 rounded text-blue-600 focus:ring-blue-500 focus-visible-ring" />
+                        <span className="ml-3 text-gray-700">{option}</span>
+                    </label>
+                ))}
+            </div>
+            <div className="text-right mt-6">
+                <button onClick={onClose} className="px-5 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus-visible-ring">Done</button>
+            </div>
+        </div>
+    </div>
+);
+
+// --- SOLVER STEP COMPONENTS ---
+const LeverStep = ({ plan, updatePlan }) => {
+    const { currentProblem } = useContext(AppContext);
+    const levers = problemLevers[currentProblem.id] || {};
+    const selectedLevers = plan.levers || [];
+    const toggleLever = (lever) => {
+        const newLevers = selectedLevers.includes(lever) ? selectedLevers.filter(l => l !== lever) : (selectedLevers.length < 3 ? [...selectedLevers, lever] : selectedLevers);
+        const newRationales = {...(plan.rationales || {})};
+        if (!newLevers.includes(lever)) { delete newRationales[lever]; }
+        updatePlan({ ...plan, levers: newLevers, rationales: newRationales });
+    };
+    const saveRationale = (lever, audioUrl) => { updatePlan({ ...plan, rationales: { ...(plan.rationales || {}), [lever]: audioUrl }}); };
+    const LeverRationaleRecorder = ({ lever, audioUrl, onSave }) => {
+        const { isRecording, audioURL, startRecording, stopRecording, resetRecording } = useAudioRecorder(onSave);
+        const effectiveAudioURL = audioURL || audioUrl;
+        return (
+            <div className="flex items-center gap-3 bg-gray-100 p-2 rounded-lg">
+                <p className="font-semibold text-gray-700 flex-grow">{lever}</p>
+                {effectiveAudioURL ? (
+                    <div className="flex items-center gap-2">
+                        <audio src={effectiveAudioURL} controls className="h-8" />
+                        <button onClick={resetRecording} className="p-2 rounded-full hover:bg-red-100 text-red-500 focus-visible-ring" aria-label={`Delete rationale for ${lever}`}><Icons.Trash /></button>
+                    </div>
+                ) : ( <button onClick={isRecording ? stopRecording : startRecording} className={`p-2 rounded-full transition-colors focus-visible-ring ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-blue-500 text-white hover:bg-blue-600'}`} aria-label={isRecording ? `Stop recording for ${lever}` : `Record rationale for ${lever}`}>{isRecording ? <Icons.Stop /> : <Icons.Mic />}</button> )}
+            </div>
+        );
+    };
+    return (
+        <div>
+            <h3 className="font-bold text-xl text-gray-700 mb-2 text-center">Step 1: Select & Justify Levers</h3>
+            <p className="text-center text-gray-500 mb-6">Tap up to 3 levers, then record a brief voice note for each explaining why it's a priority.</p>
+            <div className="flex flex-col md:flex-row gap-8">
+                <div className="flex-1">
+                    <h4 className="font-bold text-lg text-center mb-3">Available Levers</h4>
+                    <div className="flex flex-wrap gap-3 justify-center">
+                        {Object.entries(levers).map(([lever, definition]) => ( <Tooltip key={lever} text={definition}><button onClick={() => toggleLever(lever)} disabled={!selectedLevers.includes(lever) && selectedLevers.length >= 3} className={`px-4 py-2 text-base rounded-full font-semibold transition-all duration-200 border-2 focus-visible-ring ${selectedLevers.includes(lever) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 disabled:opacity-50'}`} aria-pressed={selectedLevers.includes(lever)}>{lever}</button></Tooltip> ))}
+                    </div>
+                </div>
+                <div className="flex-1 md:border-l md:pl-8">
+                    <h4 className="font-bold text-lg text-center mb-3">Record Rationale</h4>
+                    {selectedLevers.length > 0 ? ( <div className="space-y-3">{selectedLevers.map(lever => ( <LeverRationaleRecorder key={lever} lever={lever} audioUrl={(plan.rationales || {})[lever]} onSave={(audioUrl) => saveRationale(lever, audioUrl)} /> ))}</div> ) : ( <div className="text-center text-gray-500 p-4 bg-gray-50 rounded-lg">Select a lever to record its rationale.</div> )}
+                </div>
+            </div>
+        </div>
+    );
+};
+const ScoringStep = ({ plan, updatePlan }) => {
+    const levers = plan.levers || [];
+    const scores = plan.scores || {};
+    const handleDragStart = (e, lever) => { e.dataTransfer.setData("text/plain", lever); };
+    const handleDrop = (e, type) => {
+        e.preventDefault();
+        const lever = e.dataTransfer.getData("text/plain");
+        const dropZone = e.currentTarget.getBoundingClientRect();
+        const dropY = e.clientY - dropZone.top;
+        const score = 100 - Math.round((dropY / dropZone.height) * 100);
+        const clampedScore = Math.max(0, Math.min(100, score));
+        updatePlan({ ...plan, scores: { ...scores, [lever]: { ...(scores[lever] || { impact: 0, effort: 0 }), [type]: clampedScore, } } });
+    };
+    const DraggableLever = ({ lever, score }) => ( <div draggable onDragStart={(e) => handleDragStart(e, lever)} className="absolute p-2 bg-white rounded-full shadow-lg cursor-grab active:cursor-grabbing border-2 border-blue-500 flex items-center justify-center -translate-x-1/2" style={{ top: `${100 - score}%`, left: '50%', transform: `translate(-50%, -50%)` }} aria-label={`${lever}: ${score} points`}><span className="text-2xl">⚙️</span></div> );
+    return (
+        <div>
+            <h3 className="font-bold text-xl text-gray-700 mb-2 text-center">Step 2: Score Your Levers</h3>
+            <p className="text-center text-gray-500 mb-6">Drag each lever's icon onto the bars. Higher on the bar means higher impact or effort.</p>
+            <div className="flex flex-col sm:flex-row justify-center items-start gap-8 md:gap-16 min-h-[350px]">
+                {['impact', 'effort'].map(type => (
+                    <div key={type} className="text-center">
+                        <h4 className="text-2xl font-bold mb-3">{type === 'impact' ? '💥 Impact' : '⚒️ Effort'}</h4>
+                        <div className="relative w-20 h-72 bg-gray-200 rounded-full overflow-hidden" onDragOver={(e) => e.preventDefault()} onDrop={(e) => handleDrop(e, type)}>
+                            <div className={`absolute bottom-0 w-full rounded-full ${type === 'impact' ? 'bg-gradient-to-t from-green-300 to-green-500' : 'bg-gradient-to-t from-amber-300 to-amber-500'}`}></div>
+                            {levers.map(lever => ( <DraggableLever key={lever} lever={lever} score={(scores[lever] || {})[type] || 0} /> ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+const AvenueStep = ({ plan, updatePlan, onRevisitLevers }) => {
+    const { execute, status, error, retry } = useAsync(MOCK_API_CALL);
+    const [flippedCards, setFlippedCards] = useState({});
+    const { width } = useWindowSize();
+    const isMobile = width < 768;
+
+    useEffect(() => {
+        if (!plan.avenues) {
+            execute("generate three distinct strategic avenues").then(result => {
+                if (result.success) { updatePlan({ ...plan, avenues: result.data }); }
+            });
+        }
+    }, []);
+
+    const toggleFlip = (index) => setFlippedCards(prev => ({ ...prev, [index]: !prev[index] }));
+    
+    const Card = ({ item, index }) => (
+        <div className="w-full h-64" onClick={() => toggleFlip(index)} role="button" aria-pressed={!!flippedCards[index]}>
+            <div className="relative w-full h-full transition-transform duration-700" style={{ transformStyle: 'preserve-3d', transform: flippedCards[index] ? 'rotateY(180deg)' : 'none' }}>
+                <div className="absolute w-full h-full p-6 rounded-xl bg-blue-500 text-white flex flex-col justify-center items-center text-center shadow-lg focus-visible-ring" style={{ backfaceVisibility: 'hidden' }} tabIndex="0">
+                    <h4 className="text-xl font-bold">{item.avenue}</h4>
+                </div>
+                <div className="absolute w-full h-full p-6 rounded-xl bg-yellow-400 text-gray-800 flex flex-col justify-center items-center text-center shadow-lg" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                    <h5 className="font-bold text-lg mb-2">Counterargument</h5>
+                    <p>{item.counter}</p>
+                </div>
+            </div>
+        </div>
+    );
+
+    if (status === 'pending') return <div className="text-center p-8">Generating strategic avenues...</div>;
+    if (status === 'error') return <ErrorOverlay error={error} onRetry={retry} />;
+    
+    return (
+        <div>
+            <div className="flex justify-between items-center mb-2">
+                <h3 className="font-bold text-xl text-gray-700 text-center flex-grow">Step 3: Explore Strategic Avenues</h3>
+                <button onClick={onRevisitLevers} className="text-sm font-semibold text-blue-600 hover:underline focus-visible-ring">🔄 Revisit Levers</button>
+            </div>
+            <p className="text-center text-gray-500 mb-6">Here are three ways to approach the problem. Tap a card to see a potential objection.</p>
+            <div style={{ perspective: '1000px' }}>
+                {isMobile ? (
+                    <swiper-container slides-per-view="1.2" space-between="16" centered-slides="true">
+                        {(plan.avenues || []).map((item, index) => (
+                            <swiper-slide key={index}><Card item={item} index={index} /></swiper-slide>
+                        ))}
+                    </swiper-container>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {(plan.avenues || []).map((item, index) => <Card key={index} item={item} index={index} />)}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+const SolutionStep = ({ plan, updatePlan }) => {
+    const { execute, status } = useAsync(MOCK_API_CALL);
+    const [currentStepIndex, setCurrentStepIndex] = useState(0);
+    const [modal, setModal] = useState({ open: false, type: 'risks' });
+    const swiperRef = useRef(null);
+    const { width } = useWindowSize();
+    const isMobile = width < 768;
+
+    const actionSteps = plan.actionSteps || [];
+    const currentStep = actionSteps[currentStepIndex];
+
+    const addNewStep = () => {
+        execute("generate a practical action step").then(result => {
+            if (result.success) {
+                const newStep = { id: Date.now(), text: result.data, owner: null, dueDate: '', metric: 80, risks: [], dependencies: [] };
+                updatePlan({ ...plan, actionSteps: [...actionSteps, newStep] });
+                setTimeout(() => swiperRef.current?.swiper.slideTo(actionSteps.length), 0);
+            }
+        });
+    };
+    
+    useEffect(() => {
+        if (!plan.actionSteps) { addNewStep(); }
+    }, []);
+    
+    useEffect(() => {
+        if (swiperRef.current) {
+            const swiper = swiperRef.current.swiper;
+            swiper.on('slideChange', () => setCurrentStepIndex(swiper.activeIndex));
+        }
+    }, [actionSteps.length]);
+
+    const updateCurrentStep = (field, value) => {
+        const newActionSteps = [...actionSteps];
+        newActionSteps[currentStepIndex] = { ...currentStep, [field]: value };
+        updatePlan({ ...plan, actionSteps: newActionSteps });
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        const memberId = e.dataTransfer.getData("memberId");
+        const member = teamMembers.find(m => m.id === parseInt(memberId));
+        if (member) { updateCurrentStep('owner', member); }
+        e.currentTarget.classList.remove('border-blue-500');
+    };
+
+    const toggleModalItem = (item) => {
+        const currentItems = currentStep[modal.type] || [];
+        const newItems = currentItems.includes(item) ? currentItems.filter(i => i !== item) : [...currentItems, item];
+        updateCurrentStep(modal.type, newItems);
+    };
+
+    const ActionCard = ({ step }) => (
+        <div className="bg-white p-6 rounded-xl shadow-md border-2 border-transparent transition-colors duration-300" onDrop={handleDrop} onDragOver={e => {e.preventDefault(); e.currentTarget.classList.add('border-blue-500');}} onDragLeave={e => e.currentTarget.classList.remove('border-blue-500')}>
+            <p className="text-lg font-semibold text-gray-800 h-16">{step.text}</p>
+            <div className={`grid ${isMobile ? 'grid-cols-1' : 'grid-cols-3'} gap-4 mt-4`}>
+                <div className="flex flex-col items-center justify-center p-2 bg-gray-50 rounded-lg"><label className="font-bold text-gray-600 mb-2">Owner</label>{step.owner ? <div className="text-center"><span className="text-4xl">{step.owner.avatar}</span><span className="font-bold block">{step.owner.name}</span></div> : <div className="text-gray-400">Drag Avatar</div>}</div>
+                <div className="flex flex-col items-center justify-center p-2 bg-gray-50 rounded-lg"><label className="font-bold text-gray-600 mb-2">Due Date</label><input type="date" value={step.dueDate} onChange={e => updateCurrentStep('dueDate', e.target.value)} className="p-2 border rounded-lg focus-visible-ring" aria-label="Due date"/></div>
+                <div className="flex flex-col items-center justify-center p-2 bg-gray-50 rounded-lg"><label className="font-bold text-gray-600 mb-2">Success ≥ {step.metric}%</label><input type="range" min="0" max="100" value={step.metric} onChange={e => updateCurrentStep('metric', parseInt(e.target.value))} className="w-full" aria-label="Success metric"/></div>
+            </div>
+            <div className="flex justify-center gap-4 mt-4 pt-4 border-t">
+                <button onClick={() => setModal({ open: true, type: 'risks' })} className="flex items-center gap-2 px-3 py-2 bg-yellow-100 text-yellow-800 rounded-lg font-semibold hover:bg-yellow-200 focus-visible-ring"><Icons.Risk /> Risks ({step.risks.length})</button>
+                <button onClick={() => setModal({ open: true, type: 'dependencies' })} className="flex items-center gap-2 px-3 py-2 bg-indigo-100 text-indigo-800 rounded-lg font-semibold hover:bg-indigo-200 focus-visible-ring"><Icons.Dependency /> Dependencies ({step.dependencies.length})</button>
+            </div>
+        </div>
+    );
+
+    if (status === 'pending' && actionSteps.length === 0) return <div className="text-center p-8">Generating first action step...</div>;
+    
+    return (
+        <div>
+            {modal.open && currentStep && <SelectionModal title={`Select ${modal.type}`} options={modal.type === 'risks' ? ALL_RISKS : ALL_DEPENDENCIES} selected={currentStep[modal.type]} onToggle={toggleModalItem} onClose={() => setModal({ open: false, type: '' })} />}
+            <h3 className="font-bold text-xl text-gray-700 mb-2 text-center">Step 4: Build Your Action Plan</h3>
+            <p className="text-center text-gray-500 mb-6">Assign owners, set deadlines, and define success for each step.</p>
+            <div className="flex justify-center items-center gap-4 mb-6 flex-wrap">
+                <h4 className="font-bold text-lg hidden sm:block">Team:</h4>
+                {teamMembers.map(member => ( <div key={member.id} draggable onDragStart={e => e.dataTransfer.setData("memberId", member.id)} className="flex flex-col items-center cursor-grab"><span className="text-4xl p-2 bg-gray-200 rounded-full">{member.avatar}</span><span className="text-xs font-semibold">{member.name}</span></div> ))}
+            </div>
+            <swiper-container ref={swiperRef} slides-per-view="1.1" space-between="16" centered-slides="true">
+                {actionSteps.map((step) => <swiper-slide key={step.id}><ActionCard step={step} /></swiper-slide>)}
+                <swiper-slide>
+                    <div onClick={addNewStep} role="button" aria-label="Add new action step" className="flex flex-col items-center justify-center w-full h-full bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 text-gray-500 hover:bg-gray-200 hover:border-gray-400 transition-colors cursor-pointer focus-visible-ring">
+                        <Icons.Plus />
+                        <span className="mt-2 font-semibold">Add Next Step</span>
+                    </div>
+                </swiper-slide>
+            </swiper-container>
+        </div>
+    );
+};
+
+// --- MAIN VIEWS ---
+const FilingCabinetView = () => {
+    const { problems, selectProblem } = useContext(AppContext);
+    return (
+        <div className="w-full max-w-2xl mx-auto p-4 md:p-6">
+            <div className="text-center mb-8"><h1 className="text-4xl md:text-5xl font-black text-gray-800 tracking-tight">Problem Workspace</h1><p className="text-gray-500 mt-2 text-lg">Select a challenge to begin solving.</p></div>
+            <div className="space-y-4">{problems.map(p => ( <div key={p.id} onClick={() => selectProblem(p)} role="button" tabIndex="0" onKeyPress={e => e.key === 'Enter' && selectProblem(p)} className="flex items-center bg-white/40 backdrop-blur-md border-l-8 border-blue-500 rounded-lg shadow-sm p-4 group transition-all hover:shadow-lg hover:bg-white/60 cursor-pointer focus-visible-ring"><span className="text-4xl mr-4">{p.icon}</span><div><h3 className="font-bold text-gray-900 text-lg">{p.title}</h3><p className="text-gray-700 text-sm">{p.detail}</p></div></div> ))}</div>
+        </div>
+    );
+};
+const SolverStepper = ({ currentStep, setStep }) => {
+    const steps = ['🎛', '📊', '🛣', '✅'];
+    const stepNames = ['Levers', 'Scoring', 'Avenues', 'Solution'];
+    const stepKeys = ['levers', 'scoring', 'avenues', 'solution'];
+    const stepIndex = stepKeys.indexOf(currentStep);
+    return (
+        <div className="flex justify-center items-center space-x-2 sm:space-x-4 mb-6" aria-label="Progress">
+            {steps.map((icon, index) => (
+                <React.Fragment key={index}>
+                    <button onClick={() => setStep(stepKeys[index])} disabled={index > stepIndex} className="flex flex-col items-center disabled:cursor-not-allowed focus-visible-ring rounded-lg">
+                        <div className={`w-12 h-12 sm:w-14 sm:h-14 rounded-full flex items-center justify-center text-2xl transition-all duration-300 ${index <= stepIndex ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{icon}</div>
+                        <p className={`mt-2 text-xs sm:text-sm font-semibold ${index <= stepIndex ? 'text-blue-600' : 'text-gray-500'}`}>{stepNames[index]}</p>
+                    </button>
+                    {index < steps.length - 1 && ( <div className={`flex-1 h-1 rounded-full transition-colors duration-300 ${index < stepIndex ? 'bg-blue-600' : 'bg-gray-200'}`}></div> )}
+                </React.Fragment>
+            ))}
+        </div>
+    );
+};
+const SolverView = () => {
+    const { currentProblem, setView, setSavedPlans } = useContext(AppContext);
+    const [plan, setPlan] = usePersistentState(`plan-${currentProblem.id}`, { step: 'levers', problem: {id: currentProblem.id} });
+    const updatePlan = (newPlanData) => { setPlan(prev => ({ ...prev, ...newPlanData })); };
+    const setStep = (newStep) => { updatePlan({ step: newStep }); };
+    const handleNext = () => {
+        const stepOrder = ['levers', 'scoring', 'avenues', 'solution'];
+        const currentStepIndex = stepOrder.indexOf(plan.step);
+        if (currentStepIndex < stepOrder.length - 1) { setStep(stepOrder[currentStepIndex + 1]); }
+    };
+    const handleBack = () => {
+        const stepOrder = ['levers', 'scoring', 'avenues', 'solution'];
+        const currentStepIndex = stepOrder.indexOf(plan.step);
+        if (currentStepIndex > 0) { setStep(stepOrder[currentStepIndex - 1]); }
+    };
+    const handleSave = () => {
+        setSavedPlans(prev => {
+            const finalPlan = { ...plan, problem: currentProblem, completedAt: new Date().toISOString() };
+            const existingPlanIndex = prev.findIndex(p => p.problem.id === currentProblem.id);
+            const updatedPlans = [...prev];
+            if (existingPlanIndex > -1) { updatedPlans[existingPlanIndex] = finalPlan; } else { updatedPlans.push(finalPlan); }
+            return updatedPlans;
+        });
+        setView('summary');
+    };
+    const renderStep = () => {
+        switch(plan.step) {
+            case 'levers': return <LeverStep plan={plan} updatePlan={updatePlan} />;
+            case 'scoring': return <ScoringStep plan={plan} updatePlan={updatePlan} />;
+            case 'avenues': return <AvenueStep plan={plan} updatePlan={updatePlan} onRevisitLevers={() => setStep('levers')} />;
+            case 'solution': return <SolutionStep plan={plan} updatePlan={updatePlan} />;
+            default: return <LeverStep plan={plan} updatePlan={updatePlan} />;
+        }
+    };
+    return (
+        <div className="w-full max-w-6xl mx-auto p-4 md:p-6">
+            <div className="flex justify-between items-center mb-4"><button onClick={() => setView('filingCabinet')} className="text-blue-800 font-semibold bg-white/50 px-3 py-1 rounded-lg hover:bg-white/80 transition focus-visible-ring">&larr; Back to Workspace</button></div>
+            <div className="bg-white/80 backdrop-blur-xl rounded-2xl shadow-xl p-4 sm:p-6 md:p-8">
+                <div className="text-center mb-4"><h1 className="text-3xl sm:text-4xl font-extrabold text-gray-800 mt-2 tracking-tight">{currentProblem.title}</h1></div>
+                <SolverStepper currentStep={plan.step} setStep={setStep} />
+                <div className="mt-8 min-h-[450px]">{renderStep()}</div>
+                <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
+                    <button onClick={handleBack} disabled={plan.step === 'levers'} className="px-6 py-2 bg-gray-200 text-gray-800 font-bold rounded-lg disabled:opacity-50 hover:bg-gray-300 transition-all focus-visible-ring">&larr; Back</button>
+                    {plan.step !== 'solution' ? ( <button onClick={handleNext} className="px-8 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all focus-visible-ring">Next &rarr;</button> ) : ( <button onClick={handleSave} className="px-8 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-all focus-visible-ring">✓ Add to Final Plan</button> )}
+                </div>
+            </div>
+        </div>
+    );
+};
+const SummaryView = () => {
+    const { savedPlans, setView } = useContext(AppContext);
+    const summaryRef = useRef();
+    const handleDownload = async () => {
+        try {
+            await Promise.all([
+                loadScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"),
+                loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")
+            ]);
+            const { jsPDF } = window.jspdf;
+            const canvas = await window.html2canvas(summaryRef.current, { scale: 2 });
+            const imgData = canvas.toDataURL('image/png');
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+            pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth - 20, pdfHeight - 20);
+            pdf.save("strategic-plan.pdf");
+        } catch (error) { alert("Could not download PDF. Please try again."); }
+    };
+    if (savedPlans.length === 0) {
+        return ( <div className="text-center p-10 bg-white/60 backdrop-blur-md rounded-xl max-w-lg mx-auto"><h1 className="text-3xl font-bold text-gray-700">Your Final Plan is Empty</h1><p className="text-gray-500 mt-2">Solve some challenges to build your plan.</p><button onClick={() => setView('filingCabinet')} className="mt-4 px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg focus-visible-ring">Start Solving</button></div> );
+    }
+    return (
+        <div className="w-full max-w-5xl mx-auto p-4 md:p-6">
+            <div className="flex justify-between items-center mb-8">
+                <h1 className="text-3xl md:text-5xl font-black text-gray-800 text-center flex-grow">Final Operations Plan</h1>
+                <button onClick={handleDownload} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus-visible-ring"><Icons.Download /> Download PDF</button>
+            </div>
+            <div ref={summaryRef} className="space-y-6 bg-white p-6 rounded-lg">
+                {savedPlans.map((plan, index) => (
+                    <div key={index} className="rounded-xl shadow-lg p-6 break-inside-avoid border-t-4 border-blue-500">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4 border-b pb-2">{plan.problem.title}</h2>
+                        {(plan.actionSteps || []).map((step, stepIndex) => (
+                            <div key={step.id} className={`mt-4 ${stepIndex > 0 ? 'pt-4 border-t border-dashed' : ''}`}>
+                                <p className="text-lg font-semibold bg-gray-100 p-3 rounded-lg">{stepIndex + 1}. {step.text}</p>
+                                <div className="grid grid-cols-2 gap-4 mt-3 text-sm">
+                                    <div><strong>Owner:</strong> {step.owner?.name || 'Unassigned'}</div>
+                                    <div><strong>Due:</strong> {step.dueDate || 'Not set'}</div>
+                                    <div><strong>Success:</strong> ≥ {step.metric}%</div>
+                                    <div><strong>Risks:</strong> {step.risks.join(', ') || 'None'}</div>
+                                    <div className="col-span-2"><strong>Dependencies:</strong> {step.dependencies.join(', ') || 'None'}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const App = () => {
+    const { view, setView } = useContext(AppContext);
+    useEffect(() => {
+        loadScript("https://cdn.jsdelivr.net/npm/swiper@11/swiper-element-bundle.min.js");
+    }, []);
+
+    const renderView = () => {
+        switch (view) {
+            case 'solver': return <SolverView />;
+            case 'summary': return <SummaryView />;
+            case 'filingCabinet': default: return <FilingCabinetView />;
+        }
+    };
+    return (
+        <div className="min-h-screen font-sans antialiased animated-gradient-bg">
+             <style>{` .animated-gradient-bg { background: linear-gradient(180deg, #fecaca, #fef08a, #bae6fd); background-size: 100% 300%; animation: gradient-animation 20s ease infinite; } @keyframes gradient-animation { 0% { background-position: 50% 0%; } 50% { background-position: 50% 100%; } 100% { background-position: 50% 0%; } } .break-inside-avoid { break-inside: avoid; } .focus-visible-ring { outline: none; } .focus-visible-ring:focus-visible { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5); } `}</style>
+            <header className="bg-white/60 backdrop-blur-lg shadow-sm sticky top-0 z-10">
+                <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex justify-between items-center h-16">
+                        <div className="font-bold text-lg text-gray-800">Strategic Solver v6</div>
+                        <div>
+                            <button onClick={() => setView('filingCabinet')} className={`font-semibold px-3 py-2 rounded-md text-sm transition-colors focus-visible-ring ${view === 'filingCabinet' ? 'text-blue-600 bg-blue-100' : 'text-gray-500 hover:text-blue-600'}`} aria-current={view === 'filingCabinet'}>Workspace</button>
+                            <button onClick={() => setView('summary')} className={`font-semibold px-3 py-2 rounded-md text-sm transition-colors focus-visible-ring ${view === 'summary' ? 'text-blue-600 bg-blue-100' : 'text-gray-500 hover:text-blue-600'}`} aria-current={view === 'summary'}>Final Plan</button>
+                        </div>
+                    </div>
+                </nav>
+            </header>
+            <main className="py-6 md:py-10">{renderView()}</main>
+        </div>
+    );
+};
+
+const AppWrapper = () => ( <AppProvider><App /></AppProvider> );
+export default AppWrapper;
+
