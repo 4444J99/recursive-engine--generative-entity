@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Social Influence Simulator v1.8.1 (Mobile Hotfix)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+            transition: background 1.5s ease-in-out;
+            touch-action: none; /* Prevents scrolling on mobile */
+        }
+        .glass-panel {
+            background-color: rgba(255, 255, 255, 0.5);
+            -webkit-backdrop-filter: blur(20px);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .node { 
+            position: absolute; 
+            transform: translate(-50%, -50%); 
+            transition: transform 0.3s ease, background-color 0.5s ease, width 0.3s ease, height 0.3s ease; 
+            z-index: 10;
+            animation: pulse 4s infinite ease-in-out;
+            cursor: grab;
+        }
+        .node.is-user { animation: none; cursor: default; }
+        .node.dragging { cursor: grabbing; animation: none; z-index: 100; transform: translate(-50%, -50%) scale(1.1); }
+        .node-line { 
+            position: absolute; 
+            height: 3px; 
+            transform-origin: left center; 
+            z-index: 1;
+            border-radius: 3px;
+            transition: all 0.3s ease;
+        }
+        .message-box {
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.05); }
+        }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes trait-change {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); }
+            50% { transform: translate(-50%, -50%) scale(1.15); }
+        }
+        .animate-trait-change { animation: trait-change 1s ease-in-out; }
+        @keyframes slide-in {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes slide-out {
+            from { transform: translateY(0); opacity: 1; }
+            to { transform: translateY(20px); opacity: 0; }
+        }
+        .animate-slide-in { animation: slide-in 0.3s ease-out forwards; }
+        .animate-slide-out { animation: slide-out 0.3s ease-in forwards; }
+
+        .spinner { display: inline-block; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; width: 16px; height: 16px; animation: spin 0.8s linear infinite; }
+        .analysis-content h3 { font-weight: bold; margin-top: 1rem; }
+        .analysis-content strong { color: #312e81; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-800 antialiased overflow-hidden">
+
+    <div id="background-gradient" class="fixed inset-0 -z-10 transition-all duration-[1500ms] ease-in-out"></div>
+
+    <div class="flex flex-col lg:flex-row w-full min-h-screen">
+        <!-- Main Visualization Area -->
+        <main class="flex-1 relative h-screen lg:h-auto">
+            <div id="network-canvas" class="w-full h-full touch-none"></div>
+            <div class="absolute top-4 left-4 glass-panel p-4 rounded-2xl shadow-lg">
+                <h1 class="text-lg font-bold text-slate-900">Social Sphere Simulator</h1>
+                <p class="text-sm text-slate-700">v1.8.1 (Mobile Hotfix)</p>
+            </div>
+            <div id="message-box" class="message-box hidden fixed bottom-4 right-4 bg-slate-900 text-white p-4 rounded-lg shadow-lg max-w-sm z-50">
+                <p id="message-text"></p>
+            </div>
+        </main>
+
+        <!-- Control Panel -->
+        <aside class="w-full lg:w-96 glass-panel p-6 flex flex-col shadow-lg lg:border-l lg:border-white/20">
+            <div class="flex-shrink-0">
+                <h2 class="text-2xl font-bold text-slate-900 mb-1">Control Panel</h2>
+                <p class="text-sm text-slate-700 mb-6">Shape your social sphere.</p>
+            </div>
+
+            <div class="mb-6 p-4 bg-white/50 rounded-2xl">
+                <h3 class="font-bold text-slate-800 mb-2">Your Calculated Average</h3>
+                <div id="user-average-display" class="space-y-2 text-sm"></div>
+            </div>
+
+            <div class="flex-grow flex flex-col min-h-0">
+                <h3 class="font-bold text-slate-800 mb-2">Inner Circle (Max 5)</h3>
+                <div id="friend-list-container" class="friend-list flex-grow overflow-y-auto -mr-2 pr-2 space-y-3"></div>
+            </div>
+
+            <div class="mt-6 flex-shrink-0 space-y-3">
+                 <div class="grid grid-cols-2 gap-3">
+                    <button id="add-friend-btn" class="w-full bg-slate-800 text-white font-semibold py-3 px-4 rounded-lg hover:bg-slate-900 transition-colors shadow-md disabled:bg-slate-400">Add Manually</button>
+                    <button id="add-persona-btn" class="w-full bg-purple-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-purple-700 transition-colors shadow-md disabled:bg-slate-400 flex items-center justify-center">✨ Generate Persona</button>
+                </div>
+            </div>
+            
+            <div class="mt-6 pt-6 border-t border-white/20">
+                 <h3 class="font-bold text-slate-800 mb-4">Advanced Actions</h3>
+                 <div class="space-y-3">
+                    <button id="trigger-event-btn" class="w-full bg-slate-700 text-white font-semibold py-3 px-4 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-center">✨ Trigger Event</button>
+                    <button id="get-analysis-btn" class="w-full bg-slate-700 text-white font-semibold py-3 px-4 rounded-lg hover:bg-slate-800 transition-colors flex items-center justify-center">✨ Get Group Analysis</button>
+                    <div class="grid grid-cols-2 gap-3">
+                        <button id="import-btn" class="w-full bg-white/60 text-slate-800 font-semibold py-3 px-4 rounded-lg hover:bg-white/80 transition-colors">Import</button>
+                        <button id="export-btn" class="w-full bg-white/60 text-slate-800 font-semibold py-3 px-4 rounded-lg hover:bg-white/80 transition-colors">Export</button>
+                    </div>
+                 </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modals -->
+    <div id="persona-modal" class="hidden fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
+         <div class="glass-panel rounded-2xl shadow-2xl w-full max-w-md p-8">
+            <h2 class="text-2xl font-bold mb-2 flex items-center text-slate-900">✨ Generate Persona</h2>
+            <p class="text-slate-700 mb-6">Describe a friend, or use a preset.</p>
+            <form id="persona-form">
+                <textarea id="persona-textarea" class="w-full h-24 bg-white/50 border-white/30 rounded-lg text-slate-900 placeholder-slate-600 p-2"></textarea>
+                <div class="mt-4 flex justify-between items-center">
+                    <button type="button" id="persona-preset-btn" class="bg-white/60 text-slate-800 font-semibold py-2 px-4 rounded-lg">Use Preset</button>
+                    <div class="flex space-x-3">
+                        <button type="button" id="cancel-persona" class="bg-white/60 text-slate-800 font-semibold py-2 px-4 rounded-lg">Cancel</button>
+                        <button type="submit" id="submit-persona" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg w-32">Generate</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="event-modal" class="hidden fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
+        <div class="glass-panel rounded-2xl shadow-2xl w-full max-w-md p-8">
+             <h2 class="text-2xl font-bold mb-2 flex items-center text-slate-900">✨ Trigger Event</h2>
+            <p class="text-slate-700 mb-6">Describe a life event, or use a preset.</p>
+            <form id="event-form">
+                <textarea id="event-textarea" class="w-full h-24 bg-white/50 border-white/30 rounded-lg text-slate-900 placeholder-slate-600 p-2"></textarea>
+                <div class="mt-4 flex justify-between items-center">
+                    <button type="button" id="event-preset-btn" class="bg-white/60 text-slate-800 font-semibold py-2 px-4 rounded-lg">Use Preset</button>
+                    <div class="flex space-x-3">
+                        <button type="button" id="cancel-event" class="bg-white/60 text-slate-800 font-semibold py-2 px-4 rounded-lg">Cancel</button>
+                        <button type="submit" id="submit-event" class="bg-purple-600 text-white font-semibold py-2 px-4 rounded-lg w-32">Trigger</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+    <div id="analysis-modal" class="hidden fixed inset-0 bg-black/30 flex items-center justify-center p-4 z-50">
+        <div class="glass-panel rounded-2xl shadow-2xl w-full max-w-lg p-8">
+            <h2 class="text-2xl font-bold mb-2 flex items-center text-slate-900">✨ Group Analysis</h2>
+            <div id="analysis-content" class="analysis-content mt-4 text-slate-800 max-h-[60vh] overflow-y-auto"></div>
+            <div class="mt-6 flex justify-end">
+                <button type="button" id="close-analysis" class="bg-slate-800 text-white font-semibold py-2 px-4 rounded-lg">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const App = {
+            config: {
+                MAX_FRIENDS: 5,
+                TRAITS: { 
+                    Optimism: { color: [34, 197, 94], name: 'green' },
+                    Ambition: { color: [59, 130, 246], name: 'blue' },
+                    Creativity: { color: [168, 85, 247], name: 'purple' },
+                    Health: { color: [234, 179, 8], name: 'yellow' }
+                },
+                PERSONA_PRESETS: [
+                    "An old friend from college who is always optimistic and pushing me to be more ambitious.",
+                    "A quiet, creative type I met at a coffee shop. They seem very thoughtful and have a calm energy.",
+                    "My gym buddy. Super focused on health and fitness, always energetic.",
+                    "A coworker who is incredibly ambitious and always talking about their side hustle.",
+                    "A new neighbor who is very friendly and seems to value a healthy, balanced lifestyle."
+                ],
+                EVENT_PRESETS: [
+                    "We all started a new book club together.",
+                    "A stressful week at work for everyone.",
+                    "We went on a weekend hiking trip and the weather was perfect.",
+                    "Someone shared some really disappointing news.",
+                    "We all tried a new, difficult recipe and it was a hilarious disaster."
+                ]
+            },
+            state: { 
+                nodes: [], 
+                lines: [], 
+                messageTimeout: null, 
+                bgColor: [40, 40, 60],
+                draggedNodeId: null,
+                personaPresetIndex: 0,
+                eventPresetIndex: 0,
+            },
+            dom: {},
+
+            init() {
+                // Cache all DOM elements for performance
+                this.dom = {
+                    backgroundGradient: document.getElementById('background-gradient'),
+                    networkCanvas: document.getElementById('network-canvas'),
+                    friendListContainer: document.getElementById('friend-list-container'),
+                    userAverageDisplay: document.getElementById('user-average-display'),
+                    messageBox: document.getElementById('message-box'),
+                    messageText: document.getElementById('message-text'),
+                    addPersonaBtn: document.getElementById('add-persona-btn'),
+                    triggerEventBtn: document.getElementById('trigger-event-btn'),
+                    getAnalysisBtn: document.getElementById('get-analysis-btn'),
+                    personaModal: document.getElementById('persona-modal'),
+                    personaForm: document.getElementById('persona-form'),
+                    personaTextarea: document.getElementById('persona-textarea'),
+                    personaPresetBtn: document.getElementById('persona-preset-btn'),
+                    cancelPersonaBtn: document.getElementById('cancel-persona'),
+                    submitPersonaBtn: document.getElementById('submit-persona'),
+                    eventModal: document.getElementById('event-modal'),
+                    eventForm: document.getElementById('event-form'),
+                    eventTextarea: document.getElementById('event-textarea'),
+                    eventPresetBtn: document.getElementById('event-preset-btn'),
+                    cancelEventBtn: document.getElementById('cancel-event'),
+                    submitEventBtn: document.getElementById('submit-event'),
+                    analysisModal: document.getElementById('analysis-modal'),
+                    analysisContent: document.getElementById('analysis-content'),
+                    closeAnalysisBtn: document.getElementById('close-analysis'),
+                };
+                
+                // Initialize user node and set up event listeners
+                this.state.nodes.push({ id: 'user', name: 'You', isUser: true, traits: {}, x: 50, y: 50 });
+                this.events.setup();
+                this.view.render();
+                this.helpers.showMessage("Welcome! Drag friends to move them.", 5000);
+            },
+
+            events: {
+                setup() {
+                    const { dom } = App;
+                    
+                    dom.addPersonaBtn.addEventListener('click', () => dom.personaModal.classList.remove('hidden'));
+                    dom.triggerEventBtn.addEventListener('click', () => dom.eventModal.classList.remove('hidden'));
+                    dom.getAnalysisBtn.addEventListener('click', App.logic.getAnalysis);
+
+                    dom.cancelPersonaBtn.addEventListener('click', () => dom.personaModal.classList.add('hidden'));
+                    dom.cancelEventBtn.addEventListener('click', () => dom.eventModal.classList.add('hidden'));
+                    dom.closeAnalysisBtn.addEventListener('click', () => dom.analysisModal.classList.add('hidden'));
+
+                    dom.personaForm.addEventListener('submit', (e) => { e.preventDefault(); App.logic.generatePersona(); });
+                    dom.eventForm.addEventListener('submit', (e) => { e.preventDefault(); App.logic.triggerEvent(); });
+                    
+                    dom.personaPresetBtn.addEventListener('click', () => {
+                        dom.personaTextarea.value = App.config.PERSONA_PRESETS[App.state.personaPresetIndex];
+                        App.state.personaPresetIndex = (App.state.personaPresetIndex + 1) % App.config.PERSONA_PRESETS.length;
+                    });
+                     dom.eventPresetBtn.addEventListener('click', () => {
+                        dom.eventTextarea.value = App.config.EVENT_PRESETS[App.state.eventPresetIndex];
+                        App.state.eventPresetIndex = (App.state.eventPresetIndex + 1) % App.config.EVENT_PRESETS.length;
+                    });
+
+                    const canvas = dom.networkCanvas;
+                    canvas.addEventListener('mousedown', this.handleDragStart);
+                    canvas.addEventListener('mousemove', App.helpers.throttle(this.handleDragMove, 16));
+                    document.addEventListener('mouseup', this.handleDragEnd);
+                    canvas.addEventListener('touchstart', this.handleDragStart, { passive: false });
+                    canvas.addEventListener('touchmove', App.helpers.throttle(this.handleDragMove, 16), { passive: false });
+                    document.addEventListener('touchend', this.handleDragEnd);
+
+                    window.addEventListener('resize', App.helpers.throttle(App.view.render.bind(App.view), 100));
+                },
+
+                handleDragStart(e) {
+                    const pos = App.helpers.getEventPos(e);
+                    const canvasRect = App.dom.networkCanvas.getBoundingClientRect();
+                    const clickX = pos.x - canvasRect.left;
+                    const clickY = pos.y - canvasRect.top;
+
+                    // MOB-FIX-01: Use precise math for hit detection, not getBoundingClientRect
+                    const clickedNode = App.helpers.getFriends().find(node => {
+                        const nodeSize = 64 + ((node.influence || 1) - 1) * 32;
+                        const radius = nodeSize / 2;
+                        const nodeCenterX = node.x / 100 * canvasRect.width;
+                        const nodeCenterY = node.y / 100 * canvasRect.height;
+                        const distance = Math.sqrt(Math.pow(clickX - nodeCenterX, 2) + Math.pow(clickY - nodeCenterY, 2));
+                        return distance <= radius;
+                    });
+
+                    if (clickedNode) {
+                        // MOB-FIX-02: Prevent browser default actions like scrolling
+                        e.preventDefault();
+                        App.state.draggedNodeId = clickedNode.id;
+                        const nodeEl = App.dom.networkCanvas.querySelector(`[data-id='${clickedNode.id}']`);
+                        if(nodeEl) nodeEl.classList.add('dragging');
+                    }
+                },
+
+                handleDragMove(e) {
+                    if (!App.state.draggedNodeId) return;
+                    // MOB-FIX-02: Prevent browser default actions during drag
+                    e.preventDefault();
+                    const pos = App.helpers.getEventPos(e);
+                    const canvasRect = App.dom.networkCanvas.getBoundingClientRect();
+                    const node = App.state.nodes.find(n => n.id === App.state.draggedNodeId);
+                    if (node) {
+                        node.x = Math.max(0, Math.min(100, (pos.x - canvasRect.left) / canvasRect.width * 100));
+                        node.y = Math.max(0, Math.min(100, (pos.y - canvasRect.top) / canvasRect.height * 100));
+                        // MOB-FIX-03: Render with throttling for performance
+                        App.view.render();
+                    }
+                },
+
+                handleDragEnd() {
+                    if(App.state.draggedNodeId) {
+                        const nodeEl = App.dom.networkCanvas.querySelector(`[data-id='${App.state.draggedNodeId}']`);
+                        if(nodeEl) nodeEl.classList.remove('dragging');
+                        App.state.draggedNodeId = null;
+                        App.logic.calculateUserAverage();
+                        App.view.render();
+                    }
+                }
+            },
+
+            logic: {
+                calculateUserAverage() {
+                    const friends = App.helpers.getFriends();
+                    const userNode = App.helpers.getUserNode();
+                    const baseColor = [40, 40, 60];
+                    if (friends.length === 0) { 
+                        userNode.traits = {}; 
+                        App.state.bgColor = baseColor;
+                        return; 
+                    }
+                    const weightedTotals = {}; const totalInfluence = friends.reduce((sum, f) => sum + f.influence, 0);
+                    let avgColor = [0, 0, 0];
+                    Object.keys(App.config.TRAITS).forEach(t => weightedTotals[t] = 0);
+                    friends.forEach(f => {
+                        const influenceRatio = f.influence / totalInfluence;
+                        Object.entries(App.config.TRAITS).forEach(([t, config]) => {
+                            const traitValue = f.traits[t] || 0;
+                            weightedTotals[t] += traitValue * f.influence;
+                            avgColor[0] += config.color[0] * traitValue/10 * influenceRatio;
+                            avgColor[1] += config.color[1] * traitValue/10 * influenceRatio;
+                            avgColor[2] += config.color[2] * traitValue/10 * influenceRatio;
+                        });
+                    });
+                    Object.keys(App.config.TRAITS).forEach(t => {
+                        userNode.traits[t] = totalInfluence > 0 ? weightedTotals[t] / totalInfluence : 0;
+                    });
+                    App.state.bgColor = [
+                        Math.round(baseColor[0] * 0.7 + avgColor[0] * 0.3),
+                        Math.round(baseColor[1] * 0.7 + avgColor[1] * 0.3),
+                        Math.round(baseColor[2] * 0.7 + avgColor[2] * 0.3),
+                    ];
+                },
+                async generatePersona() {
+                    const description = App.dom.personaTextarea.value;
+                    if (!description || App.helpers.getFriends().length >= App.config.MAX_FRIENDS) { App.helpers.showMessage("Provide a description and ensure space in your circle."); return; }
+                    const btn = App.dom.submitPersonaBtn;
+                    App.helpers.setLoading(btn, true);
+                    const prompt = `You are a personality analyst. Based on: "${description}", generate a JSON object representing a person. Respond ONLY with valid JSON matching the schema. Infer a name.`;
+                    const schema = { type: "OBJECT", properties: { name: { type: "STRING" }, traits: { type: "OBJECT", properties: { Optimism: { type: "NUMBER" }, Ambition: { type: "NUMBER" }, Creativity: { type: "NUMBER" }, Health: { type: "NUMBER" } } }, influence: { type: "NUMBER" } } };
+                    try {
+                        const result = JSON.parse(await App.helpers.callGemini(prompt, schema));
+                        const newFriend = { id: `friend-${Date.now()}`, name: result.name, traits: result.traits, influence: Math.max(0.5, Math.min(2.0, result.influence || 1.0)), isUser: false };
+                        App.state.nodes.push(newFriend);
+                        App.dom.personaModal.classList.add('hidden');
+                        App.view.render();
+                        App.helpers.showMessage(`✨ ${result.name} generated and added.`);
+                    } catch (error) { App.helpers.showMessage(`Generation failed: ${error.message}`, 5000); } finally { App.helpers.setLoading(btn, false); }
+                },
+                async triggerEvent() {
+                    const description = App.dom.eventTextarea.value;
+                    const friends = App.helpers.getFriends();
+                    if (!description || friends.length === 0) { App.helpers.showMessage("Provide an event and have at least one friend."); return; }
+                    const btn = App.dom.submitEventBtn;
+                    App.helpers.setLoading(btn, true);
+                    const friendsData = friends.map(f => ({ name: f.name, traits: f.traits }));
+                    const prompt = `A life event occurs: "${description}". For these people: ${JSON.stringify(friendsData)}, predict temporary trait changes. Respond ONLY with a JSON object mapping names to trait changes, e.g., {"Alex":{"Optimism":-1,"Health":2}}.`;
+                    try {
+                        const changes = JSON.parse(await App.helpers.callGemini(prompt));
+                        const originalStates = {};
+                        friends.forEach(f => {
+                            if (changes[f.name]) {
+                                originalStates[f.id] = JSON.parse(JSON.stringify(f.traits));
+                                const nodeEl = App.dom.networkCanvas.querySelector(`[data-id="${f.id}"]`);
+                                let mainTraitChanged, maxChange = 0;
+                                Object.keys(changes[f.name]).forEach(trait => {
+                                    if (f.traits[trait] !== undefined) {
+                                        const changeValue = changes[f.name][trait];
+                                        f.traits[trait] = Math.max(1, Math.min(10, f.traits[trait] + changeValue));
+                                        if (Math.abs(changeValue) > Math.abs(maxChange)) { maxChange = changeValue; mainTraitChanged = trait; }
+                                    }
+                                });
+                                if(nodeEl && mainTraitChanged){
+                                    const color = App.config.TRAITS[mainTraitChanged].color;
+                                    nodeEl.classList.add('animate-trait-change');
+                                    nodeEl.style.backgroundColor = `rgba(${color[0]}, ${color[1]}, ${color[2]}, 0.8)`;
+                                }
+                            }
+                        });
+                        App.dom.eventModal.classList.add('hidden');
+                        App.view.render();
+                        App.helpers.showMessage("✨ Event triggered! See the temporary effects.");
+                        setTimeout(() => {
+                            friends.forEach(f => { 
+                                if(originalStates[f.id]) f.traits = originalStates[f.id]; 
+                                const nodeEl = App.dom.networkCanvas.querySelector(`[data-id="${f.id}"]`);
+                                if (nodeEl) {
+                                    nodeEl.classList.remove('animate-trait-change');
+                                    nodeEl.style.backgroundColor = '';
+                                }
+                            });
+                            App.view.render();
+                            App.helpers.showMessage("Event effects have worn off.");
+                        }, 5000);
+                    } catch (error) { App.helpers.showMessage(`Event failed: ${error.message}`, 5000); } finally { App.helpers.setLoading(btn, false); }
+                },
+                async getAnalysis() {
+                    const friends = App.helpers.getFriends();
+                    if (friends.length === 0) { App.helpers.showMessage("Add at least one friend for analysis."); return; }
+                    const btn = App.dom.getAnalysisBtn;
+                    App.helpers.setLoading(btn, true);
+                    App.dom.analysisContent.innerHTML = '<div class="flex justify-center p-8"><div class="spinner !border-slate-800 !border-t-transparent"></div></div>';
+                    App.dom.analysisModal.classList.remove('hidden');
+                    const friendsData = friends.map(f => ({ name: f.name, traits: f.traits, influence: f.influence }));
+                    const prompt = `You are a social dynamics coach. Analyze this inner circle: ${JSON.stringify(friendsData)}. Provide a concise analysis on: 1. **Group Strengths**, 2. **Potential Weaknesses/Blind Spots**, and 3. **Actionable Advice**. Format using Markdown.`;
+                    try {
+                        const resultText = await App.helpers.callGemini(prompt);
+                        App.dom.analysisContent.innerHTML = `<div class="analysis-content">${resultText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}</div>`;
+                    } catch (error) { App.dom.analysisContent.innerHTML = `<p class="text-red-500">Analysis failed: ${error.message}</p>`; } finally { App.helpers.setLoading(btn, false); }
+                },
+            },
+
+            view: {
+                render() {
+                    this.updateBackground();
+                    if(!App.state.draggedNodeId) this.positionNodes(); 
+                    this.generateLines();
+
+                    const canvas = App.dom.networkCanvas;
+                    canvas.innerHTML = ''; 
+
+                    App.state.lines.forEach(l => canvas.appendChild(this.renderLine(l)));
+                    App.state.nodes.forEach(n => canvas.appendChild(this.renderNode(n)));
+                    
+                    this.renderFriendList(); 
+                    this.renderUserAverage();
+                    App.dom.addPersonaBtn.disabled = App.helpers.getFriends().length >= App.config.MAX_FRIENDS;
+                },
+                updateBackground() {
+                    const [r, g, b] = App.state.bgColor;
+                    const accentR = Math.min(255, r + 40);
+                    const accentG = Math.min(255, g + 20);
+                    const accentB = Math.min(255, b + 50);
+                    App.dom.backgroundGradient.style.background = `radial-gradient(circle at top left, rgba(${accentR},${accentG},${accentB},0.4), transparent 40%), radial-gradient(circle at bottom right, rgba(${accentB},${accentG},${accentR},0.4), transparent 50%), rgb(${r}, ${g}, ${b})`;
+                },
+                renderNode(node) {
+                    const el = document.createElement('div');
+                    el.dataset.id = node.id;
+                    let size, textClass, ringClass, bgColor;
+                    if (node.isUser) { 
+                        [size, textClass, ringClass, bgColor] = [112, 'text-lg', 'ring-4 ring-white/50', 'bg-white/80 is-user']; 
+                    } else { 
+                        size = 64 + ((node.influence || 1) - 1) * 32; 
+                        [textClass, ringClass, bgColor] = ['text-base', 'ring-2 ring-white/30', 'bg-white/70']; 
+                    }
+                    el.className = `node ${bgColor} ${App.state.draggedNodeId === node.id ? 'dragging' : ''} rounded-full flex flex-col items-center justify-center shadow-xl ${ringClass}`;
+                    el.style.cssText = `width:${size}px; height:${size}px; left:${node.x}%; top:${node.y}%;`;
+                    
+                    const nameSpan = document.createElement('span');
+                    nameSpan.className = `${textClass} font-bold text-slate-900`;
+                    nameSpan.textContent = node.name;
+                    el.appendChild(nameSpan);
+                    return el;
+                },
+                renderLine(line) {
+                    const fromNode = App.state.nodes.find(n => n.id === line.from); const toNode = App.state.nodes.find(n => n.id === line.to);
+                    if (!fromNode || !toNode) return document.createElement('div');
+                    const el = document.createElement('div');
+                    const rect = App.dom.networkCanvas.getBoundingClientRect();
+                    const fromX = fromNode.x / 100 * rect.width; const fromY = fromNode.y / 100 * rect.height;
+                    const toX = toNode.x / 100 * rect.width; const toY = toNode.y / 100 * rect.height;
+                    const length = Math.sqrt((toX - fromX) ** 2 + (toY - fromY) ** 2);
+                    const angle = Math.atan2(toY - fromY, toX - fromX) * (180 / Math.PI);
+                    el.className = `node-line`;
+                    const [r,g,b] = App.state.bgColor;
+                    el.style.background = `rgba(${r+80}, ${g+80}, ${b+80}, 0.5)`;
+                    el.style.boxShadow = `0 0 10px rgba(${r+80}, ${g+80}, ${b+80}, 0.5)`;
+                    el.style.cssText += `width:${length}px; left:${fromX}px; top:${fromY}px; transform:rotate(${angle}deg);`;
+                    return el;
+                },
+                renderFriendList() {
+                    const cont = App.dom.friendListContainer; const friends = App.helpers.getFriends();
+                    cont.innerHTML = ''; if (friends.length === 0) { cont.innerHTML = '<p class="text-slate-700 text-sm mt-2">Your inner circle is empty.</p>'; return; }
+                    friends.forEach(f => {
+                        const card = document.createElement('div'); card.className = 'p-3 bg-white/40 rounded-xl relative';
+                        const traitHTML = Object.keys(App.config.TRAITS).map(t => `<div class="flex items-center text-xs"><div class="w-2 h-2 rounded-full" style="background-color:rgb(${App.config.TRAITS[t].color.join(',')})"></div><span class="font-medium text-slate-700 ml-1.5">${t.slice(0,3)}:</span><span class="font-bold text-slate-900 ml-1">${Math.round(f.traits[t] || 0)}</span></div>`).join('');
+                        card.innerHTML = `<div class="flex items-center justify-between"><p class="font-bold text-slate-900">${f.name}</p><span class="text-xs font-bold bg-white/50 text-slate-800 px-2 py-0.5 rounded-full">${(f.influence || 1.0).toFixed(1)}x Inf.</span></div><div class="grid grid-cols-2 gap-x-3 gap-y-1 mt-1.5">${traitHTML}</div><button data-id="${f.id}" class="remove-friend-btn absolute top-1 right-1 w-6 h-6 rounded-full bg-white/30 text-slate-700 hover:bg-red-500 hover:text-white flex items-center justify-center transition">&times;</button>`;
+                        cont.appendChild(card);
+                    });
+                },
+                renderUserAverage() {
+                    const userNode = App.helpers.getUserNode(); const disp = App.dom.userAverageDisplay;
+                    if (Object.keys(userNode.traits).length === 0) { disp.innerHTML = '<p class="text-slate-700">Add friends to see your calculated average.</p>'; return; }
+                    disp.innerHTML = Object.keys(App.config.TRAITS).map(t => `<div class="flex justify-between items-center"><span class="font-semibold text-slate-800">${t}</span><span class="font-bold text-lg text-slate-900">${(userNode.traits[t] || 0).toFixed(1)}</span></div>`).join('');
+                },
+                positionNodes() {
+                    const { nodes } = App.state; const { networkCanvas } = App.dom;
+                    const userNode = App.helpers.getUserNode(); const friends = App.helpers.getFriends();
+                    const radius = Math.min(networkCanvas.clientWidth, networkCanvas.clientHeight) * 0.28;
+                    friends.forEach((friend, i) => {
+                        const angle = (i / (friends.length || 1)) * 2 * Math.PI - (Math.PI / 2);
+                        friend.x = userNode.x + (radius / networkCanvas.clientWidth * 100) * Math.cos(angle);
+                        friend.y = userNode.y + (radius / networkCanvas.clientHeight * 100) * Math.sin(angle);
+                    });
+                },
+                generateLines() {
+                    App.state.lines = []; const userNode = App.helpers.getUserNode();
+                    App.helpers.getFriends().forEach(friend => App.state.lines.push({ from: userNode.id, to: friend.id }));
+                }
+            },
+
+            helpers: {
+                getEventPos(e) {
+                    if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                    return { x: e.clientX, y: e.clientY };
+                },
+                throttle(func, wait) {
+                    let timeout;
+                    return function(...args) {
+                        if (!timeout) {
+                            timeout = setTimeout(() => {
+                                func.apply(this, args);
+                                timeout = null;
+                            }, wait);
+                        }
+                    };
+                },
+                showMessage(text, duration = 4000) {
+                    const { messageBox, messageText } = App.dom;
+                    if (!messageBox || !messageText) return;
+                    messageText.textContent = text;
+                    messageBox.classList.remove('hidden', 'animate-slide-out');
+                    messageBox.classList.add('animate-slide-in');
+                    clearTimeout(App.state.messageTimeout);
+                    App.state.messageTimeout = setTimeout(() => {
+                        messageBox.classList.remove('animate-slide-in');
+                        messageBox.classList.add('animate-slide-out');
+                    }, duration);
+                },
+                async callGemini(prompt, schema = null) {
+                    const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+                    if (schema) { payload.generationConfig = { responseMimeType: "application/json", responseSchema: schema }; }
+                    const apiKey = ""; // Handled by environment
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                    if (!response.ok) { const errorBody = await response.json(); throw new Error(errorBody.error?.message || "API request failed"); }
+                    const result = await response.json();
+                    if (result.candidates?.[0]?.content?.parts?.[0]) { return result.candidates[0].content.parts[0].text; }
+                    else { throw new Error("Invalid response structure from API."); }
+                },
+                setLoading(button, isLoading) {
+                    if (isLoading) {
+                        button.disabled = true; button.dataset.originalText = button.innerHTML;
+                        button.innerHTML = '<div class="spinner"></div>';
+                    } else {
+                        button.disabled = false; button.innerHTML = button.dataset.originalText || 'Submit';
+                    }
+                },
+                getFriends: () => App.state.nodes.filter(n => !n.isUser),
+                getUserNode: () => App.state.nodes.find(n => n.isUser),
+            }
+        };
+
+        App.init();
+    });
+    </script>
+</body>
+</html>
+
