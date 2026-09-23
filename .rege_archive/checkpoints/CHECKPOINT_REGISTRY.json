@@ -17,14 +17,8 @@
       "name": "test_cp",
       "timestamp": "2026-07-06T17:32:18.458591",
       "trigger": "manual"
-    },
-    {
-      "snapshot_id": "SNAP_20260923_061219",
-      "name": "test_cp",
-      "timestamp": "2026-09-23T06:12:19.695230",
-      "trigger": "manual"
     }
   ],
-  "saved_at": "2026-09-23T06:12:19.695898",
-  "count": 4
+  "saved_at": "2026-07-06T17:32:18.458858",
+  "count": 3
 }
