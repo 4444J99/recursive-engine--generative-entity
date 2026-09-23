@@ -166,8 +166,39 @@ pip install -e .
 # Install development dependencies (pytest, coverage)
 pip install -e ".[dev]"
 
-# Verify installation
+# Verify installation using CLI or direct python module entrypoint
 rege status
+# OR
+python -m rege status
+```
+
+### Smoke Check Verification
+
+To run a immediate smoke-check verification of the runtime system and dispatch pipeline:
+
+```bash
+# 1. System Status Verification
+python -m rege status
+
+# Expected Output:
+# ::RE:GE SYSTEM STATUS::
+# [QUEUE]
+#   Size: 0/1000
+# [ORGANS]
+#   Registered: 22
+
+# 2. Ritual Invocation Verification
+python -m rege invoke '::CALL_ORGAN HEART_OF_CANON
+::WITH "threshold crossing"
+::MODE mythic
+::DEPTH standard
+::CHARGE 75'
+
+# Expected Output:
+# ::INVOCATION RESULT::
+#   Organ: HEART_OF_CANON
+#   Status: success
+#   Output Type: narrative
 ```
 
 ### Runtime Dependencies

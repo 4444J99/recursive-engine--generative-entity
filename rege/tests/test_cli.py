@@ -337,6 +337,17 @@ class TestHelpOption:
         assert "status" in result.output
 
 
+class TestMainModuleEntrypoint:
+    """Tests for python -m rege main entrypoint."""
+
+    def test_main_import_and_execution(self):
+        """Test rege.__main__ module import and main execution."""
+        import runpy
+        with patch('rege.cli.main') as mock_main:
+            runpy.run_module('rege', run_name='__main__')
+            assert mock_main.called
+
+
 class TestInitSystem:
     """Tests for init_system function."""
 

@@ -17,8 +17,20 @@
       "name": "test_cp",
       "timestamp": "2026-07-06T17:32:18.458591",
       "trigger": "manual"
+    },
+    {
+      "snapshot_id": "SNAP_20260923_054903",
+      "name": "test_cp",
+      "timestamp": "2026-09-23T05:49:03.530957",
+      "trigger": "manual"
+    },
+    {
+      "snapshot_id": "SNAP_20260923_055217",
+      "name": "test_cp",
+      "timestamp": "2026-09-23T05:52:17.410865",
+      "trigger": "manual"
     }
   ],
-  "saved_at": "2026-07-06T17:32:18.458858",
-  "count": 3
+  "saved_at": "2026-09-23T05:52:17.411414",
+  "count": 5
 }
