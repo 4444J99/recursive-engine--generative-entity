@@ -58,7 +58,7 @@ class CheckpointManager:
             The created StateSnapshot
         """
         now = datetime.now()
-        snapshot_id = f"SNAP_{now.strftime('%Y%m%d_%H%M%S')}"
+        snapshot_id = self._allocate_snapshot_id(now)
 
         snapshot = StateSnapshot(
             snapshot_id=snapshot_id,
@@ -80,6 +80,28 @@ class CheckpointManager:
         self._update_registry(snapshot)
 
         return snapshot
+
+    def _allocate_snapshot_id(self, when: datetime) -> str:
+        """Allocate a snapshot ID unique across registry and snapshot dir.
+
+        Keeps the whole-second timestamp base (sortable, stable) with a
+        zero-padded sequence suffix (SNAP_YYYYMMDD_HHMMSS_NNN), matching the
+        layout documented in the module docstring. The sequence is derived
+        from IDs already claimed in the checkpoint registry and snapshot
+        files on disk, so two checkpoints created within the same second
+        receive distinct IDs even when the clock does not advance between
+        calls, and allocation stays correct across manager instances and
+        process restarts.
+        """
+        base = f"SNAP_{when.strftime('%Y%m%d_%H%M%S')}"
+        claimed = {e.get("snapshot_id") for e in self.archive.load_checkpoint_registry()}
+        claimed |= {p.stem for p in self._snapshots_dir.glob("SNAP_*.json")}
+        seq = 1
+        candidate = f"{base}_{seq:03d}"
+        while candidate in claimed:
+            seq += 1
+            candidate = f"{base}_{seq:03d}"
+        return candidate
 
     def _save_snapshot(self, snapshot: StateSnapshot) -> str:
         """Save a snapshot to file."""
