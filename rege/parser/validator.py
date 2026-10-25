@@ -240,7 +240,11 @@ class InvocationValidator:
                 )
 
         # Check depth is valid
-        if invocation.depth not in DepthLevel:
+        if isinstance(invocation.depth, DepthLevel):
+            depth_valid = True
+        else:
+            depth_valid = any(invocation.depth == level.value for level in DepthLevel)
+        if not depth_valid:
             errors.append(f"Invalid depth: {invocation.depth}")
 
         # Check flags are recognized
