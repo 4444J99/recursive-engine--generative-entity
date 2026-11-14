@@ -12,16 +12,22 @@ metadata:
   implementation_status: ACTIVE
   tier: flagship
   promotion_status: PUBLIC_PROCESS
-  last_validated: "2026-02-11"
+  last_validated: "2026-04-14"
   generated: "2026-02-17"
   sprint: "SENSORIA"
   language: python
+  entrypoint: "rege.cli:main"
+  module_entrypoint: "python -m rege"
 
 agents:
   - name: ci
     trigger: on_push
-    workflow: .github/workflows/ci-python.yml
+    workflow: .github/workflows/ci.yml
     description: "Continuous integration pipeline"
+  - name: release
+    trigger: on_tag
+    workflow: .github/workflows/release.yml
+    description: "Builds and publishes versioned release artifacts (sdist and wheel)"
 
 produces:
   - type: theory
