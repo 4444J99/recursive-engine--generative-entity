@@ -15,21 +15,25 @@ class TestColorsDisable:
     def test_colors_disable_sets_empty_strings(self):
         """Test Colors.disable sets all uppercase attrs to empty strings."""
         from rege.formatting import Colors
-        # Save original values
-        original_reset = Colors.RESET
-        original_red = Colors.RED
+        # Save original values: disable() blanks every uppercase attribute,
+        # so snapshot the full class state — restoring only some attributes
+        # leaks blanked colors to later tests in the same process.
+        original = {
+            attr: getattr(Colors, attr) for attr in dir(Colors) if attr.isupper()
+        }
 
-        Colors.disable()
+        try:
+            Colors.disable()
 
-        assert Colors.RESET == ""
-        assert Colors.RED == ""
-        assert Colors.GREEN == ""
-        assert Colors.BOLD_RED == ""
-        assert Colors.DIM == ""
-
-        # Restore for other tests
-        Colors.RESET = original_reset
-        Colors.RED = original_red
+            assert Colors.RESET == ""
+            assert Colors.RED == ""
+            assert Colors.GREEN == ""
+            assert Colors.BOLD_RED == ""
+            assert Colors.DIM == ""
+        finally:
+            # Restore for other tests
+            for attr, value in original.items():
+                setattr(Colors, attr, value)
 
     def test_colors_disable_no_color_env(self):
         """Test that NO_COLOR env triggers disable at import time."""
