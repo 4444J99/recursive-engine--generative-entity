@@ -166,8 +166,39 @@ pip install -e .
 # Install development dependencies (pytest, coverage)
 pip install -e ".[dev]"
 
-# Verify installation
+# Verify installation using CLI or direct python module entrypoint
 rege status
+# OR
+python -m rege status
+```
+
+### Smoke Check Verification
+
+To run a immediate smoke-check verification of the runtime system and dispatch pipeline:
+
+```bash
+# 1. System Status Verification
+python -m rege status
+
+# Expected Output:
+# ::RE:GE SYSTEM STATUS::
+# [QUEUE]
+#   Size: 0/1000
+# [ORGANS]
+#   Registered: 22
+
+# 2. Ritual Invocation Verification
+python -m rege invoke '::CALL_ORGAN HEART_OF_CANON
+::WITH "threshold crossing"
+::MODE mythic
+::DEPTH standard
+::CHARGE 75'
+
+# Expected Output:
+# ::INVOCATION RESULT::
+#   Organ: HEART_OF_CANON
+#   Status: success
+#   Output Type: narrative
 ```
 
 ### Runtime Dependencies
@@ -462,7 +493,7 @@ See [ROADMAP.md](ROADMAP.md) for the complete plan with phase descriptions and d
 
 ### System Context
 
-RE:GE is part of the [organvm eight-organ system](https://github.com/meta-organvm) — a creative-institutional architecture coordinating ~79 repositories across 8 GitHub organizations. It serves as the **theoretical foundation** (ORGAN-I) that establishes vocabulary, formal models, and architectural patterns used by all downstream organs.
+RE:GE is part of the [organvm eight-organ system](https://github.com/organvm) — a creative-institutional architecture coordinating 171 repositories across 8 GitHub organizations. It serves as the **theoretical foundation** (ORGAN-I) that establishes vocabulary, formal models, and architectural patterns used by all downstream organs.
 
 ---
 
@@ -500,7 +531,7 @@ MIT License — see [LICENSE](LICENSE) for the full text.
 
 **Author:** [@4444J99](https://github.com/4444J99)
 **Organization:** [organvm-i-theoria](https://github.com/organvm-i-theoria) (ORGAN-I: Theory)
-**System:** [organvm eight-organ system](https://github.com/meta-organvm)
+**System:** [organvm eight-organ system](https://github.com/organvm)
 
 *Last updated: 2026-02-10*
 

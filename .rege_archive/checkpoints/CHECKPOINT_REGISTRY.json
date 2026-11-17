@@ -1,0 +1,24 @@
+{
+  "checkpoints": [
+    {
+      "snapshot_id": "SNAP_20260706_172954",
+      "name": "test_cp",
+      "timestamp": "2026-07-06T17:29:54.271321",
+      "trigger": "manual"
+    },
+    {
+      "snapshot_id": "SNAP_20260706_173130",
+      "name": "test_cp",
+      "timestamp": "2026-07-06T17:31:30.749211",
+      "trigger": "manual"
+    },
+    {
+      "snapshot_id": "SNAP_20260706_173218",
+      "name": "test_cp",
+      "timestamp": "2026-07-06T17:32:18.458591",
+      "trigger": "manual"
+    }
+  ],
+  "saved_at": "2026-07-06T17:32:18.458858",
+  "count": 3
+}
