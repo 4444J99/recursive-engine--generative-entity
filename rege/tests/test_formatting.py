@@ -31,19 +31,23 @@ class TestColors:
 
     def test_colors_disable(self):
         """Test colors can be disabled."""
-        # Save original values
-        original_red = Colors.RED
-        original_reset = Colors.RESET
+        # Save original values: disable() blanks every uppercase attribute,
+        # so snapshot the full class state — restoring only some attributes
+        # leaks blanked colors to later tests in the same process.
+        original = {
+            attr: getattr(Colors, attr) for attr in dir(Colors) if attr.isupper()
+        }
 
-        # Disable
-        Colors.disable()
+        try:
+            # Disable
+            Colors.disable()
 
-        assert Colors.RED == ""
-        assert Colors.RESET == ""
-
-        # Restore
-        Colors.RED = original_red
-        Colors.RESET = original_reset
+            assert Colors.RED == ""
+            assert Colors.RESET == ""
+        finally:
+            # Restore
+            for attr, value in original.items():
+                setattr(Colors, attr, value)
 
 
 class TestColorize:

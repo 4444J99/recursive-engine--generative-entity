@@ -27,7 +27,7 @@ classifiers = [
 keywords = ["symbolic", "myth", "ritual", "recursive", "generative"]
 
 dependencies = [
-    "click>=8.5.0",
+    "click>=8.5.1",
 ]
 
 [project.optional-dependencies]
